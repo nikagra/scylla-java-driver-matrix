@@ -150,7 +150,7 @@ class Run:
         ignore_file_path = self.version_folder / "ignore.yaml"
         return load_ignore_tests(ignore_file_path)
 
-    @cached_property
+    @property
     def environment(self):
         result = {}
         result.update(os.environ)
