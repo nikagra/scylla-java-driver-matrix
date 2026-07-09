@@ -64,6 +64,7 @@ jobs:
           target="${SCYLLA_VERSION:-LATEST}"
           filters=""
           fallback_repo=""
+          fallback_filters=""
           needs_resolution=true
 
           # get-version treats dots as version-component separators. The regex components below
@@ -72,7 +73,8 @@ jobs:
           # LAST.LAST.LAST = newest patch in the newest minor of the newest calendar major,
           # LAST.LAST.LAST-1 = previous patch in that same minor, LAST.1.LAST = newest LTS
           # patch in the newest calendar major, and LAST-1.1.LAST = newest LTS patch in the
-          # previous calendar major.
+          # previous calendar major. PRIOR falls back to LAST.LAST-1.LAST when the newest minor
+          # has only one patch release.
           case "$target" in
             LTS-LATEST)
               filters='^[0-9]{4}$.^[0-9]+$.^[0-9]+$ and LAST.1.LAST'
@@ -80,12 +82,14 @@ jobs:
             LTS-PRIOR)
               filters='^[0-9]{4}$.^[0-9]+$.^[0-9]+$ and LAST-1.1.LAST'
               fallback_repo="scylladb/scylla-enterprise"
+              fallback_filters="$filters"
               ;;
             LATEST)
               filters='^[0-9]{4}$.^[0-9]+$.^[0-9]+$ and LAST.LAST.LAST'
               ;;
             PRIOR)
               filters='^[0-9]{4}$.^[0-9]+$.^[0-9]+$ and LAST.LAST.LAST-1'
+              fallback_filters='^[0-9]{4}$.^[0-9]+$.^[0-9]+$ and LAST.LAST-1.LAST'
               ;;
             *)
               needs_resolution=false
@@ -98,6 +102,7 @@ jobs:
             echo "repo=scylladb/scylla"
             echo "fallback_repo=$fallback_repo"
             echo "filters=$filters"
+            echo "fallback_filters=$fallback_filters"
           } >> "$GITHUB_OUTPUT"
 
       - name: Resolve Scylla version
@@ -111,13 +116,13 @@ jobs:
           github-token: ${{ github.token }}
 
       - name: Resolve Scylla version fallback
-        if: ${{ steps.scylla-query.outputs.fallback_repo != '' && (steps.get-scylla-version.outputs.versions == '' || steps.get-scylla-version.outputs.versions == '[]') }}
+        if: ${{ steps.scylla-query.outputs.fallback_filters != '' && (steps.get-scylla-version.outputs.versions == '' || steps.get-scylla-version.outputs.versions == '[]') }}
         id: get-scylla-version-fallback
         uses: scylladb-actions/get-version@a1dc4fedfb5684242148020b24e4150b1fe7ad08 # v0.4.5
         with:
           source: dockerhub-imagetag
-          repo: ${{ steps.scylla-query.outputs.fallback_repo }}
-          filters: ${{ steps.scylla-query.outputs.filters }}
+          repo: ${{ steps.scylla-query.outputs.fallback_repo || steps.scylla-query.outputs.repo }}
+          filters: ${{ steps.scylla-query.outputs.fallback_filters }}
           github-token: ${{ github.token }}
 
       - name: Normalize inputs

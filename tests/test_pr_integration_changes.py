@@ -97,3 +97,15 @@ def test_integration_workflow_uploads_reports_after_failures():
     assert "driver/integration-tests/target/failsafe-reports/" in reports["with"]["path"]
     assert "driver/driver-core/target/surefire-reports/" in reports["with"]["path"]
     assert "~/.ccm/*/node*/logs/**" in ccm_logs["with"]["path"]
+
+
+def test_integration_workflow_prior_scylla_version_has_fallback():
+    workflow = yaml.safe_load((REPO_ROOT / ".github/workflows/integration-tests.yml").read_text())
+    steps = workflow["jobs"]["integration-test"]["steps"]
+    select = next(step for step in steps if step.get("name") == "Select Scylla version query")
+    fallback = next(step for step in steps if step.get("name") == "Resolve Scylla version fallback")
+
+    assert "LAST.LAST.LAST-1" in select["run"]
+    assert "LAST.LAST-1.LAST" in select["run"]
+    assert "fallback_filters" in fallback["if"]
+    assert "fallback_filters" in fallback["with"]["filters"]
