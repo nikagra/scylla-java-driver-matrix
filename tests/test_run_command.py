@@ -221,6 +221,29 @@ def test_environment_uses_java_11_for_add_exports_jvm_config(monkeypatch, tmp_pa
     assert runner.environment["JAVA_HOME"] == str(java_home_11)
 
 
+def test_environment_rechecks_jvm_config_between_checkouts(monkeypatch, tmp_path):
+    java_home_8 = tmp_path / "jdk-8"
+    java_home_11 = tmp_path / "jdk-11"
+    java_home_8.mkdir()
+    java_home_11.mkdir()
+    monkeypatch.setenv("JAVA_HOME", str(java_home_8))
+    monkeypatch.setenv("JAVA_HOME_11_X64", str(java_home_11))
+    runner = make_runner(tmp_path)
+
+    assert runner.environment["JAVA_HOME"] == str(java_home_8)
+
+    jvm_config = runner._java_driver_git / ".mvn" / "jvm.config"
+    jvm_config.parent.mkdir()
+    jvm_config.write_text(
+        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED\n",
+        encoding="utf-8",
+    )
+    assert runner.environment["JAVA_HOME"] == str(java_home_11)
+
+    jvm_config.unlink()
+    assert runner.environment["JAVA_HOME"] == str(java_home_8)
+
+
 def test_run_command_invokes_subprocess_without_shell(monkeypatch, tmp_path):
     runner = make_runner(tmp_path, checkout_ref="feature/ref; echo unsafe")
     captured = {}
